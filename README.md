@@ -1,6 +1,6 @@
-# Enterprise Windows Server 2022 — Active Directory, GPO, DNS & DHCP Lab
+# Enterprise Windows Server 2022 - Active Directory, GPO, DNS & DHCP Lab
 
-A complete **Windows Server 2022 Domain Controller (`corp.local`)** home lab built on **VMware Workstation Pro**, demonstrating enterprise identity management, Organizational Unit (OU) design, AD-integrated DNS, authorized DHCP scope provisioning, and Group Policy (GPO) security logon auditing.
+A complete **Windows Server 2022 Domain Controller ("corp.local")** home lab built on **VMware Workstation Pro**, demonstrating enterprise identity management, Organizational Unit (OU) design, AD-integrated DNS, authorized DHCP scope provisioning, and Group Policy (GPO) security logon auditing.
 
 > **Why this project matters:** Enterprise networks rely on Active Directory, DNS, DHCP, and Group Policy as the core identity and access backbone. This lab demonstrates hands-on deployment via both **PowerShell** and **Windows Server Manager GUI**, backed by live security telemetry verification in **Windows Event Viewer (`Event ID 4624`)**.
 
@@ -10,20 +10,20 @@ A complete **Windows Server 2022 Domain Controller (`corp.local`)** home lab bui
 
 | Feature | Implementation |
 | --- | --- |
-| **Hypervisor** | VMware Workstation Pro (`Windows Server 2022 Standard — Desktop Experience`, 4 GB RAM, 60 GB NVMe) |
-| **Domain Controller** | `lab-2026.corp.local` (`192.168.248.128/24`, Gateway `192.168.248.2`) — Primary Domain Controller (PDC) |
-| **Active Directory (AD DS)** | Custom Organizational Units (`IT-Operations`, `Workstations`), Security Group (`Network-Admins`), Domain User (`Arpan Admin`) |
-| **DNS Server** | AD-integrated Forward Lookup Zones (`corp.local`, `_msdcs.corp.local`) with verified `SOA`, `NS`, and static `Host (A)` records |
-| **DHCP Server** | AD-authorized DHCP server with active IPv4 scope `Corp-LAN-Scope` (`192.168.248.150 – 192.168.248.200/24`) |
-| **Group Policy (GPO)** | Domain-linked GPO `Security-Audit-Policy` enforcing `Audit logon events` and `Audit account logon events` (`Success, Failure`) |
-| **Security Telemetry** | Verified real-time security logs in `Event Viewer -> Security` (`Event ID 4624` Logon, `4672` Special Logon, `4768/4769` Kerberos) |
+| **Hypervisor** | VMware Workstation Pro ("Windows Server 2022 Standard - Desktop Experience", 4 GB RAM, 60 GB NVMe) |
+| **Domain Controller** | "lab-2026.corp.local" ("192.168.248.128/24", Gateway "192.168.248.2") - Primary Domain Controller (PDC) |
+| **Active Directory (AD DS)** | Custom Organizational Units ("IT-Operations", "Workstations"), Security Group ("Network-Admins"), Domain User ("Arpan Admin") |
+| **DNS Server** | AD-integrated Forward Lookup Zones ("corp.local", "_msdcs.corp.local") with verified "SOA", "NS", and static "Host (A)" records |
+| **DHCP Server** | AD-authorized DHCP server with active IPv4 scope "Corp-LAN-Scope" ("192.168.248.150 - 192.168.248.200/24") |
+| **Group Policy (GPO)** | Domain-linked GPO "Security-Audit-Policy" enforcing "Audit logon events" and "Audit account logon events" ("Success, Failure") |
+| **Security Telemetry** | Verified real-time security logs in `Event Viewer -> Security` ("Event ID 4624" Logon, "4672" Special Logon, "4768/4769" Kerberos) |
 
 ---
 
 ## Skills demonstrated
 
 - VMware Workstation Pro virtual machine provisioning and snapshot management
-- Windows Server 2022 installation, static IPv4 addressing, and role deployment via PowerShell (`Install-WindowsFeature`, `Install-ADDSForest`) and Server Manager
+- Windows Server 2022 installation, static IPv4 addressing, and role deployment via PowerShell ("Install-WindowsFeature", "Install-ADDSForest") and Server Manager
 - Active Directory Domain Services (`dsa.msc`): forest/domain promotion, Organizational Units (OUs), security groups, and least-privilege user administration
 - DNS Manager (`dnsmgmt.msc`): forward lookup zone verification, `SOA`, `NS`, and `Host (A)` record management
 - DHCP Administration (`dhcpmgmt.msc`): Active Directory authorization, IPv4 scope creation, address pool allocation, and router/DNS scope options
