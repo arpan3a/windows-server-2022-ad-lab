@@ -1,103 +1,145 @@
-# Enterprise Windows Server 2022 - Active Directory, GPO, DNS & DHCP Lab
+# Windows Server 2022 & Ubuntu Linux Home Lab — Active Directory, DNS, DHCP, GPO & UFW
 
-A complete **Windows Server 2022 Domain Controller ("corp.local")** home lab built on **VMware Workstation Pro**, demonstrating enterprise identity management, Organizational Unit (OU) design, AD-integrated DNS, authorized DHCP scope provisioning, and Group Policy (GPO) security logon auditing.
+A two-VM single-site home lab built on **VMware Workstation Pro (`192.168.248.0/24`)** featuring a **Windows Server 2022 Domain Controller (`lab-2026.corp.local`)** and an **Ubuntu Linux Server (`linux-srv01`)**.
 
-> **Why this project matters:** Enterprise networks rely on Active Directory, DNS, DHCP, and Group Policy as the core identity and access backbone. This lab demonstrates hands-on deployment via both **PowerShell** and **Windows Server Manager GUI**, backed by live security telemetry verification in **Windows Event Viewer (`Event ID 4624`)**.
-
----
-
-## What this lab implements
-
-| Feature | Implementation |
-| --- | --- |
-| **Hypervisor** | VMware Workstation Pro ("Windows Server 2022 Standard - Desktop Experience", 4 GB RAM, 60 GB NVMe) |
-| **Domain Controller** | "lab-2026.corp.local" ("192.168.248.128/24", Gateway "192.168.248.2") - Primary Domain Controller (PDC) |
-| **Active Directory (AD DS)** | Custom Organizational Units ("IT-Operations", "Workstations"), Security Group ("Network-Admins"), Domain User ("Arpan Admin") |
-| **DNS Server** | AD-integrated Forward Lookup Zones ("corp.local", "_msdcs.corp.local") with verified "SOA", "NS", and static "Host (A)" records |
-| **DHCP Server** | AD-authorized DHCP server with active IPv4 scope "Corp-LAN-Scope" ("192.168.248.150 - 192.168.248.200/24") |
-| **Group Policy (GPO)** | Domain-linked GPO "Security-Audit-Policy" enforcing "Audit logon events" and "Audit account logon events" ("Success, Failure") |
-| **Security Telemetry** | Verified real-time security logs in `Event Viewer -> Security` ("Event ID 4624" Logon, "4672" Special Logon, "4768/4769" Kerberos) |
+This project documents hands-on setup and verification of Active Directory Domain Services (AD DS), Organizational Units (OUs), AD-integrated DNS, DHCP scope configuration, Group Policy logon auditing, Linux CLI network diagnostics (`iproute2`, `dig`, `ss`), and Linux host firewall rules (`ufw`).
 
 ---
 
-## Skills demonstrated
+## Lab Environment (`192.168.248.0/24` VMware NAT Segment)
 
-- VMware Workstation Pro virtual machine provisioning and snapshot management
-- Windows Server 2022 installation, static IPv4 addressing, and role deployment via PowerShell ("Install-WindowsFeature", "Install-ADDSForest") and Server Manager
-- Active Directory Domain Services (`dsa.msc`): forest/domain promotion, Organizational Units (OUs), security groups, and least-privilege user administration
-- DNS Manager (`dnsmgmt.msc`): forward lookup zone verification, `SOA`, `NS`, and `Host (A)` record management
-- DHCP Administration (`dhcpmgmt.msc`): Active Directory authorization, IPv4 scope creation, address pool allocation, and router/DNS scope options
-- Group Policy Management (`gpmc.msc`): creating, linking, and enforcing security audit policies (`gpupdate /force`)
-- Windows Security Event Log analysis (`eventvwr.msc`): verifying authentication and logon telemetry (`Event ID 4624`, `4672`, `4768`, `4769`)
+| Component | Hostname / Role | IPv4 Address | Configuration Summary |
+| --- | --- | --- | --- |
+| **Windows Server 2022** | `lab-2026.corp.local` (Domain Controller) | `192.168.248.128/24` | AD DS (`corp.local`), DNS Server, DHCP Server (`192.168.248.150–200`), Group Policy Security Auditing |
+| **Ubuntu Server 24.04 LTS** | `linux-srv01` (Linux Client & Log Host) | `192.168.248.130/24` | Cross-host ARP/ICMP/DNS verification (`ip`, `dig`, `nslookup`), port inspection (`ss -tulnp`), `ufw` firewall (`22/tcp`, `514/udp`, `514/tcp`) |
+| **VMware NAT Gateway** | Default Gateway & DNS Forwarder | `192.168.248.2/24` | Provides outbound NAT routing and external DNS forwarding for the `192.168.248.0/24` lab subnet |
 
 ---
 
 ## Lab Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    VMware Workstation Pro (192.168.248.0/24)            │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │  Primary Domain Controller: lab-2026.corp.local                 │   │
-│   │  IPv4: 192.168.248.128/24  |  Gateway: 192.168.248.2            │   │
-│   ├─────────────────────────────────────────────────────────────────┤   │
-│   │  • Active Directory (AD DS): corp.local                         │   │
-│   │      ├── OU: IT-Operations (User: Arpan Admin, Grp: Net-Admins) │   │
-│   │      └── OU: Workstations                                       │   │
-│   │  • DNS Server: AD-Integrated Zone (corp.local, SOA, NS, Host A) │   │
-│   │  • DHCP Server: Scope [192.168.248.0] Corp-LAN-Scope (Active)   │   │
-│   │  • Group Policy: Security-Audit-Policy (Logon Success/Failure)  │   │
-│   │  • Event Viewer: Security Log Telemetry (Event IDs 4624, 4672)  │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│               VMware Workstation Pro — Lab Subnet (192.168.248.0/24)      │
+│                        Default Gateway: 192.168.248.2                     │
+│                                                                           │
+│  ┌────────────────────────────────────┐   ┌────────────────────────────┐  │
+│  │ Windows Server 2022 DC             │   │ Ubuntu Linux Server        │  │
+│  │ Host: lab-2026.corp.local          │   │ Host: linux-srv01          │  │
+│  │ IP:   192.168.248.128/24           │◄─►│ IP:   192.168.248.130/24   │  │
+│  ├────────────────────────────────────┤   ├────────────────────────────┤  │
+│  │ • AD DS: corp.local                │   │ • L2/L3 Verification:      │  │
+│  │   ├── OU: IT-Operations            │   │   ip a, ip r, ip n, ping   │  │
+│  │   │   ├── User: Arpan Admin        │   │ • Remote AD DNS Queries:   │  │
+│  │   │   └── Group: Network-Admins    │   │   dig @192.168.248.128     │  │
+│  │   └── OU: Workstations             │   │   nslookup lab-2026...     │  │
+│  │ • DNS: corp.local (SOA, NS, A)     │   │ • Socket Inspection:       │  │
+│  │ • DHCP: 192.168.248.150–200        │   │   sudo ss -tulnp           │  │
+│  │ • GPO: Security-Audit-Policy       │   │ • Host Firewall (UFW):     │  │
+│  │ • Logs: Event IDs 4624, 4672       │   │   Allow 22/tcp, 514/udp/tcp│  │
+│  └────────────────────────────────────┘   └────────────────────────────┘  │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Verification Evidence & Screenshots
+## Part 1: Windows Server 2022 Domain Controller (`192.168.248.128`)
 
 ### 1. Server Manager — AD DS & DNS Roles Active
-Installed `AD-Domain-Services` and `DNS` roles with management tools and promoted the server to a Domain Controller for `corp.local`.
+Installed `AD-Domain-Services` and `DNS` roles with management tools and promoted the server to a Domain Controller for the new `corp.local` forest.
 ![Server Manager AD DS and DNS Dashboard](screenshots/02-server-manager-adds-dns-dashboard.png)
 
 ### 2. Active Directory Users, Groups & Organizational Units (`dsa.msc`)
-Created Organizational Units (`IT-Operations` and `Workstations`), provisioned user account `Arpan Admin`, and assigned membership to the `Network-Admins` security group.
+Created Organizational Units (`IT-Operations` and `Workstations`), created user account `Arpan Admin` (`aadmin@corp.local`), and added it to the `Network-Admins` security group.
 ![Active Directory OUs and Users](screenshots/01-active-directory-ous-and-users.png)
 
-### 3. DNS Manager — Forward Lookup Zone Verification (`dnsmgmt.msc`)
-Verified AD-integrated DNS records (`SOA`, `NS`, and static `Host (A)` records resolving `lab-2026.corp.local` to `192.168.248.128`).
+### 3. DNS Manager — Forward Lookup Zone (`dnsmgmt.msc`)
+Verified AD-integrated DNS records (`SOA`, `NS`, and `Host (A)` records resolving `lab-2026.corp.local` to `192.168.248.128`).
 ![DNS Manager Forward Lookup Zone](screenshots/05-dns-manager-forward-lookup-zone.png)
 
 ### 4. DHCP Server — Active IPv4 Scope (`dhcpmgmt.msc`)
-Authorized `lab-2026.corp.local` in Active Directory and activated IPv4 scope `Corp-LAN-Scope` (`192.168.248.150 – 192.168.248.200/24`).
+Authorized `lab-2026.corp.local` in Active Directory and configured IPv4 scope `Corp-LAN-Scope` (`192.168.248.150 – 192.168.248.200/24`, Option 003 Router `192.168.248.2`, Option 006 DNS `192.168.248.128`).
 ![DHCP Active Scope](screenshots/03-dhcp-server-active-scope.png)
 
-### 5. Group Policy Management — Security Logon Auditing (`gpmc.msc`)
-Created and linked GPO `Security-Audit-Policy` across `corp.local`, enabling **Success & Failure** auditing for both Account Logon Events and Logon Events.
+### 5. Group Policy Management — Logon Auditing (`gpmc.msc`)
+Created and linked `Security-Audit-Policy` to `corp.local`, enabling **Success & Failure** auditing for Account Logon Events and Logon Events.
 ![Group Policy Security Auditing](screenshots/04-group-policy-security-auditing.png)
 
-### 6. Windows Event Viewer — Security Audit Log Verification (`eventvwr.msc`)
-Verified real-time security telemetry generation in `Windows Logs -> Security`, confirming **Event ID 4624** (*An account was successfully logged on*), **Event ID 4672**, and **Kerberos authentication events (4768/4769)** on `Lab-2026.corp.local`.
+### 6. Windows Event Viewer — Security Log Verification (`eventvwr.msc`)
+Verified audit events in `Windows Logs -> Security`, including **Event ID 4624** (*An account was successfully logged on*), **Event ID 4672**, and **Kerberos authentication events (4768/4769)**.
 ![Event Viewer Security Audit 4624](screenshots/06-event-viewer-security-audit-4624.png)
 
 ---
 
-## Key PowerShell & CLI Commands Used
+## Part 2: Client-Side Network & DNS Verification from Ubuntu Linux (`192.168.248.130`)
 
+To test connectivity and DNS resolution from a second host on the `192.168.248.0/24` subnet, an Ubuntu Server VM (`linux-srv01`) was deployed on the same virtual switch.
+
+### 7. Layer 2 ARP Resolution (`ip n`) & ICMP Reachability (`ping -c 4`)
+Verified Layer 2 MAC resolution (`00:0c:29:94:17:61`) and ICMP reachability between `linux-srv01` (`192.168.248.130`) and `lab-2026.corp.local` (`192.168.248.128`).
+![Linux Ping and ARP Table](screenshots/07-linux-ping-and-arp-neighbor-table.png)
+
+### 8. Linux Kernel Routing Table (`ip r`) & Interface Inspection (`ip addr`)
+Verified interface `ens33` (`LOWER_UP`, `192.168.248.130/24`) and the kernel routing table (`default via 192.168.248.2`).
+![Linux Route and Interface Verification](screenshots/08-linux-ip-route-and-interface-verification.png)
+
+### 9. Cross-Host DNS Query against Windows DC (`dig` & `nslookup`) & Port Inspection (`ss -tulnp`)
+Queried the Windows Domain Controller (`192.168.248.128`) from Linux using `nslookup` and `dig @192.168.248.128 lab-2026.corp.local`, confirming an authoritative response (`flags: qr aa rd ra`, `status: NOERROR`, `IN A 192.168.248.128` in `0 msec`), and inspected local listening sockets with `sudo ss -tulnp`.
+![Linux DNS Dig and SS Ports](screenshots/09-linux-dns-dig-and-ss-tulnp-ports.png)
+
+### 10. Linux Host Firewall Hardening (`ufw`)
+Configured `ufw` on `linux-srv01` with a default-deny inbound policy (`sudo ufw default deny incoming`) and explicit allow rules for OpenSSH (`22/tcp`) and Syslog (`514/udp`, `514/tcp`).
+![Linux UFW Firewall Rules](screenshots/10-linux-ufw-firewall-rules.png)
+
+---
+
+## Commands Used
+
+### Windows Server 2022 (PowerShell)
 ```powershell
-# 1. Verify Network Configuration
+# 1. Verify IP, MAC, and DNS configuration
 ipconfig /all
 
-# 2. Install Active Directory Domain Services & DNS Server Roles
+# 2. Install AD DS and DNS Server roles with management tools
 Install-WindowsFeature -Name AD-Domain-Services, DNS -IncludeManagementTools
 
-# 3. Configure DNS Client Addressing
+# 3. Point Primary DNS to local AD DNS (127.0.0.1) and Secondary DNS to the
+#    VMware NAT Gateway (192.168.248.2) for external internet name resolution
 Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses ("127.0.0.1","192.168.248.2")
 
-# 4. Promote Server to Domain Controller for corp.local
-Install-ADDSForest -DomainName "corp.local" -InstallDns
+# 4. Promote server to Domain Controller for new forest corp.local
+Install-ADDSForest `
+    -DomainName "corp.local" `
+    -DomainNetbiosName "CORP" `
+    -InstallDns:$true `
+    -Force:$true
 
-# 5. Force Group Policy Refresh
+# 5. Refresh Group Policy after linking Security-Audit-Policy
 gpupdate /force
+```
+
+### Ubuntu Linux Server (`linux-srv01` Bash CLI)
+```bash
+# 1. Inspect Layer 2/3 interfaces, routing table, and ARP neighbor cache
+ip -br a
+ip addr
+ip route
+ip neigh
+
+# 2. Verify ICMP connectivity and DNS resolution against Windows DC (192.168.248.128)
+ping -c 4 192.168.248.128
+nslookup lab-2026.corp.local 192.168.248.128
+dig @192.168.248.128 lab-2026.corp.local
+
+# 3. Inspect listening TCP and UDP sockets
+sudo ss -tulnp
+
+# 4. Configure UFW host firewall
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw allow 514/udp
+sudo ufw allow 514/tcp
+sudo ufw enable
+sudo ufw status numbered
 ```
