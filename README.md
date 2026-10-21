@@ -11,7 +11,7 @@ This project documents hands-on setup and verification of Active Directory Domai
 | Component | Hostname / Role | IPv4 Address | Configuration Summary |
 | --- | --- | --- | --- |
 | **Windows Server 2022** | lab-2026.corp.local (Domain Controller) | 192.168.248.128/24 | AD DS (corp.local), DNS Server, DHCP Server (192.168.248.150-200), Group Policy Security Auditing |
-| **Ubuntu Server 24.04 LTS** | linux-srv01 (Linux Client & Log Host) | 192.168.248.130/24 | Cross-host ARP/ICMP/DNS verification (ip, dig, nslookup), port inspection (ss -tulnp), "uf"` firewall (22/tcp, `514/udp`, 514/tcp) |
+| **Ubuntu Server 24.04 LTS** | linux-srv01 (Linux Client & Log Host) | 192.168.248.130/24 | Cross-host ARP/ICMP/DNS verification (ip, dig, nslookup), port inspection (ss -tulnp), "ufw" firewall (22/tcp, 514/udp, 514/tcp) |
 | **VMware NAT Gateway** | Default Gateway & DNS Forwarder | 192.168.248.2/24 | Provides outbound NAT routing and external DNS forwarding for the 192.168.248.0/24 lab subnet |
 
 ---
