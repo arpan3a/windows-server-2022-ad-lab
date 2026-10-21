@@ -121,25 +121,29 @@ gpupdate /force
 ### Ubuntu Linux Server (linux-srv01 Bash CLI)
 
 # 1. Inspect Layer 2/3 interfaces, routing table, and ARP neighbor cache
-ip -br a
-ip addr
-ip route
-ip neigh
+
+1. ip -br a
+2. ip addr
+3. ip route
+4. ip neigh
 
 # 2. Verify ICMP connectivity and DNS resolution against Windows DC (192.168.248.128)
-ping -c 4 192.168.248.128
-nslookup lab-2026.corp.local 192.168.248.128
-dig @192.168.248.128 lab-2026.corp.local
+
+1. ping -c 4 192.168.248.128
+2. nslookup lab-2026.corp.local 192.168.248.128
+3. dig @192.168.248.128 lab-2026.corp.local
 
 # 3. Inspect listening TCP and UDP sockets
-sudo ss -tulnp
+
+1. sudo ss -tulnp
 
 # 4. Configure UFW host firewall
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow 22/tcp
-sudo ufw allow 514/udp
-sudo ufw allow 514/tcp
-sudo ufw enable
-sudo ufw status numbered
+
+1. sudo ufw default deny incoming
+2. sudo ufw default allow outgoing
+3. sudo ufw allow 22/tcp
+4. sudo ufw allow 514/udp
+5. sudo ufw allow 514/tcp
+6. sudo ufw enable
+7. sudo ufw status numbered
 ```
